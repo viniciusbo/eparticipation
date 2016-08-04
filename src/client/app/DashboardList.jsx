@@ -6,7 +6,8 @@ export default class DashboardList extends React.Component {
   static propTypes() {
     return {
       category: React.PropTypes.object.isRequired,
-      items: React.PropTypes.array.isRequired
+      items: React.PropTypes.array.isRequired,
+      onMoveFromList: React.PropTypes.func.isRequired
     };
   }
 
@@ -25,6 +26,6 @@ export default class DashboardList extends React.Component {
   }
 
   renderItems() {
-    return this.props.items.map((tweet, index) => <DashboardListItem key={index} tweet={tweet} />);
+    return this.props.items.map((tweet, index) => <DashboardListItem key={index} tweet={tweet} onMoveFromList={this.props.onMoveFromList} />);
   }
 }

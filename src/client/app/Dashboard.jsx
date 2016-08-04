@@ -5,7 +5,8 @@ import DashboardList from './DashboardList.jsx'
 export default class Dashboard extends React.Component {
   static propTypes() {
     return {
-      lists: React.PropTypes.array.isRequired
+      lists: React.PropTypes.array.isRequired,
+      onMoveFromList: React.PropTypes.func.isRequired
     };
   }
 
@@ -25,8 +26,8 @@ export default class Dashboard extends React.Component {
         return;
 
       return (
-        <div className="col-xs-15" style={{borderTop: '5px solid ' + list.get('category').get('color')}}>
-          <DashboardList key={index} category={list.get('category')} items={list.get('items')} />
+        <div key={index} className="col-xs-3" style={{borderTop: '5px solid ' + list.get('category').get('color')}}>
+          <DashboardList category={list.get('category')} items={list.get('items')} onMoveFromList={this.props.onMoveFromList.bind(null, index)} />
         </div>
       );
     });

@@ -38,7 +38,7 @@ function connectToTwitterStream() {
 }
 
 function onNewTweet(tweet) {
-  if (!tweet || !tweet.text || tweet.text.indexOf('RT @') > -1)
+  if (!tweet || !tweet.text || tweet.text.indexOf('RT @') > -1 || tweet.text.indexOf('@') === 0)
     return;
 
   // console.log('Running classification...');
