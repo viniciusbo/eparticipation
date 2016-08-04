@@ -33,3 +33,12 @@
         float: left;
     }
 }
+
+.list-group-item-footer {
+    display: none;
+    margin: 7px 0;
+}
+
+.list-group-item:hover .list-group-item-footer {
+    display: block;
+}

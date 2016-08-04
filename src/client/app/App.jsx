@@ -1,6 +1,8 @@
 import React from 'react';
 import io from 'socket.io-client'
 import Modal from 'react-modal'
+import { List } from 'immutable'
+
 import categories from './categories.js'
 import Dashboard from './Dashboard.jsx'
 
@@ -10,25 +12,28 @@ export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      lists: categories,
+      categories: categories,
+      tweets: List(),
       tweetToMove: null,
       moveFromListIndex: null,
-      search: null
+      search: '',
+      showUncategorizedList: false,
+      showHeading: true,
     };
     socket.on('tweet', this.onTweet.bind(this));
   }
 
   onTweet(tweet, classification) {
-    const categoryIndex = classification[0][0];
-    const list = this.state.lists.get(categoryIndex);
-    const newItems = list.get('items').unshift(tweet);
-    const newList = list.set('items', newItems);
-    const newLists = this.state.lists.set(categoryIndex, newList);
-    this.setState({ lists: newLists });
+    const uncategorizedListIndex = this.state.categories.length - 1;
+    const categoryIndex = (classification[0][0] === -1) ? uncategorizedListIndex : classification[0][0];
+    this.setState({ tweets: this.state.tweets.unshift([tweet, categoryIndex]) });
   }
 
   render() {
     const tweet = (this.state.tweetToMove != null) ? <p>{this.state.tweetToMove.text}</p> : null;
+    let tweets = this.state.tweets;
+    if (this.state.search !== '')
+      tweets = this.state.tweets.filter(tweet => tweet[0].text.toLowerCase().indexOf(this.state.search.toLowerCase()) > -1);
     return (
       <div className="">
         <Modal isOpen={this.state.tweetToMove != null} style={{
@@ -36,7 +41,7 @@ export default class App extends React.Component {
             height: '180px'
           }
         }}>
-          <button className="btn btn-link text-muted" onClick={this.closeModal.bind(this)}><span className="fa fa-close"></span></button>
+          <button className="btn btn-link text-muted pull-right" onClick={this.closeModal.bind(this)}><span className="fa fa-close"></span></button>
           <div className="form-group">
             <label>Mover tweet:</label>
             {tweet}
@@ -47,11 +52,20 @@ export default class App extends React.Component {
           </div>
         </Modal>
 
-        <div className="form-group">
-          <input type="text" placeholder="Digite para buscar tweets classificados" value={this.state.search} onChange={this.onSearchChange.bind(this)} className="form-control" />
+        <div className="container-fluid">
+          <h1 className="page-title">Painel de E-participação</h1>
+
+          <div className="form-group">
+            <input type="text" placeholder="Digite para buscar tweets classificados" value={this.state.search} onChange={this.onSearchChange.bind(this)} className="form-control" />
+          </div>
+
+          <div className="form-group">
+            <button className="btn btn-block" onClick={this.toggleUnategorizedList.bind(this)}>Exibir/esconder {this.state.tweets.filter(tweet => tweet[1] === this.state.categories.length - 1).size} tweet(s) não categorizado(s)</button>
+          </div>
         </div>
-        
-        <Dashboard lists={this.state.lists} onMoveFromList={this.onMoveFromList.bind(this)} />
+
+
+        <Dashboard categories={this.state.categories} tweets={tweets} onMoveFromList={this.onMoveFromList.bind(this)} showUncategorizedList={this.state.showUncategorizedList} />
       </div>
     );
   }
@@ -68,8 +82,7 @@ export default class App extends React.Component {
       return;
 
     return (
-      <select onChange={this.onMoveToList.bind(this)} className="form-control">
-        <option value={-1}>Selecione uma categoria</option>
+      <select onChange={this.onMoveToList.bind(this)} defaultValue={this.state.moveFromListIndex} className="form-control">
         {this.renderCategoriesOptions()}
       </select>
     );
@@ -80,24 +93,22 @@ export default class App extends React.Component {
   }
 
   renderCategoriesOptions() {
-    return categories.map((category, index) => <option key={index} value={index}>{category.get('category').get('name')}</option>);
+    return categories.map((category, index) => <option key={index} value={index}>{category.name}</option>);
   }
 
   onMoveFromList(listIndex, tweet) {
     this.setState({ tweetToMove: tweet, moveFromListIndex: listIndex });
   }
 
-  onMoveToList(event) {
-    let fromList = this.state.lists.get(this.state.moveFromListIndex);
-    const fromListItems = fromList.get('items');
-    const tweetIndex = fromListItems.indexOf(this.state.tweetToMove);
-    fromList = fromList.set('items', fromListItems.delete(tweetIndex));
+  toggleUnategorizedList() {
+    this.setState({ showUncategorizedList: !this.state.showUncategorizedList });
+  }
 
-    let toList = this.state.lists.get(event.target.value);
-    toList = toList.set('items', toList.get('items').unshift(this.state.tweetToMove));
-    const newLists = this.state.lists.set(this.state.moveFromListIndex, fromList).set(event.target.value, toList);
+  onMoveToList(event) {
+    const tweetIndex = this.state.tweets.findKey(tweet => tweet[0] === this.state.tweetToMove);
+    const tweets = this.state.tweets.delete(tweetIndex).unshift([this.state.tweetToMove, event.target.value]);
     this.setState({
-      lists: newLists,
+      tweets: tweets,
       tweetToMove: null,
       moveFromListIndex: null
     });

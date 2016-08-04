@@ -15,9 +15,9 @@ export default class DashboardList extends React.Component {
     return (
       <div>
         <DashboardIndex
-          name={this.props.category.get('name')}
+          name={this.props.category.name}
           count={this.props.items.size}
-          color={this.props.category.get('color')} />
+          color={this.props.category.color} />
         <div className="list-group">
           {this.renderItems()}
         </div>

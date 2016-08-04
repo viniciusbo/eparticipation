@@ -21635,7 +21635,9 @@
 	
 	var _reactModal2 = _interopRequireDefault(_reactModal);
 	
-	var _categories = __webpack_require__(/*! ./categories.js */ 243);
+	var _immutable = __webpack_require__(/*! immutable */ 243);
+	
+	var _categories = __webpack_require__(/*! ./categories.js */ 244);
 	
 	var _categories2 = _interopRequireDefault(_categories);
 	
@@ -21662,10 +21664,13 @@
 	    var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(App).call(this, props));
 	
 	    _this.state = {
-	      lists: _categories2.default,
+	      categories: _categories2.default,
+	      tweets: (0, _immutable.List)(),
 	      tweetToMove: null,
 	      moveFromListIndex: null,
-	      search: null
+	      search: '',
+	      showUncategorizedList: false,
+	      showHeading: true
 	    };
 	    socket.on('tweet', _this.onTweet.bind(_this));
 	    return _this;
@@ -21674,21 +21679,24 @@
 	  _createClass(App, [{
 	    key: 'onTweet',
 	    value: function onTweet(tweet, classification) {
-	      var categoryIndex = classification[0][0];
-	      var list = this.state.lists.get(categoryIndex);
-	      var newItems = list.get('items').unshift(tweet);
-	      var newList = list.set('items', newItems);
-	      var newLists = this.state.lists.set(categoryIndex, newList);
-	      this.setState({ lists: newLists });
+	      var uncategorizedListIndex = this.state.categories.length - 1;
+	      var categoryIndex = classification[0][0] === -1 ? uncategorizedListIndex : classification[0][0];
+	      this.setState({ tweets: this.state.tweets.unshift([tweet, categoryIndex]) });
 	    }
 	  }, {
 	    key: 'render',
 	    value: function render() {
+	      var _this2 = this;
+	
 	      var tweet = this.state.tweetToMove != null ? _react2.default.createElement(
 	        'p',
 	        null,
 	        this.state.tweetToMove.text
 	      ) : null;
+	      var tweets = this.state.tweets;
+	      if (this.state.search !== '') tweets = this.state.tweets.filter(function (tweet) {
+	        return tweet[0].text.toLowerCase().indexOf(_this2.state.search.toLowerCase()) > -1;
+	      });
 	      return _react2.default.createElement(
 	        'div',
 	        { className: '' },
@@ -21701,7 +21709,7 @@
 	            } },
 	          _react2.default.createElement(
 	            'button',
-	            { className: 'btn btn-link text-muted', onClick: this.closeModal.bind(this) },
+	            { className: 'btn btn-link text-muted pull-right', onClick: this.closeModal.bind(this) },
 	            _react2.default.createElement('span', { className: 'fa fa-close' })
 	          ),
 	          _react2.default.createElement(
@@ -21727,10 +21735,32 @@
 	        ),
 	        _react2.default.createElement(
 	          'div',
-	          { className: 'form-group' },
-	          _react2.default.createElement('input', { type: 'text', placeholder: 'Digite para buscar tweets classificados', value: this.state.search, onChange: this.onSearchChange.bind(this), className: 'form-control' })
+	          { className: 'container-fluid' },
+	          _react2.default.createElement(
+	            'h1',
+	            { className: 'page-title' },
+	            'Painel de E-participação'
+	          ),
+	          _react2.default.createElement(
+	            'div',
+	            { className: 'form-group' },
+	            _react2.default.createElement('input', { type: 'text', placeholder: 'Digite para buscar tweets classificados', value: this.state.search, onChange: this.onSearchChange.bind(this), className: 'form-control' })
+	          ),
+	          _react2.default.createElement(
+	            'div',
+	            { className: 'form-group' },
+	            _react2.default.createElement(
+	              'button',
+	              { className: 'btn btn-block', onClick: this.toggleUnategorizedList.bind(this) },
+	              'Exibir/esconder ',
+	              this.state.tweets.filter(function (tweet) {
+	                return tweet[1] === _this2.state.categories.length - 1;
+	              }).size,
+	              ' tweet(s) não categorizado(s)'
+	            )
+	          )
 	        ),
-	        _react2.default.createElement(_Dashboard2.default, { lists: this.state.lists, onMoveFromList: this.onMoveFromList.bind(this) })
+	        _react2.default.createElement(_Dashboard2.default, { categories: this.state.categories, tweets: tweets, onMoveFromList: this.onMoveFromList.bind(this), showUncategorizedList: this.state.showUncategorizedList })
 	      );
 	    }
 	  }, {
@@ -21748,12 +21778,7 @@
 	
 	      return _react2.default.createElement(
 	        'select',
-	        { onChange: this.onMoveToList.bind(this), className: 'form-control' },
-	        _react2.default.createElement(
-	          'option',
-	          { value: -1 },
-	          'Selecione uma categoria'
-	        ),
+	        { onChange: this.onMoveToList.bind(this), defaultValue: this.state.moveFromListIndex, className: 'form-control' },
 	        this.renderCategoriesOptions()
 	      );
 	    }
@@ -21769,7 +21794,7 @@
 	        return _react2.default.createElement(
 	          'option',
 	          { key: index, value: index },
-	          category.get('category').get('name')
+	          category.name
 	        );
 	      });
 	    }
@@ -21779,18 +21804,21 @@
 	      this.setState({ tweetToMove: tweet, moveFromListIndex: listIndex });
 	    }
 	  }, {
+	    key: 'toggleUnategorizedList',
+	    value: function toggleUnategorizedList() {
+	      this.setState({ showUncategorizedList: !this.state.showUncategorizedList });
+	    }
+	  }, {
 	    key: 'onMoveToList',
 	    value: function onMoveToList(event) {
-	      var fromList = this.state.lists.get(this.state.moveFromListIndex);
-	      var fromListItems = fromList.get('items');
-	      var tweetIndex = fromListItems.indexOf(this.state.tweetToMove);
-	      fromList = fromList.set('items', fromListItems.delete(tweetIndex));
+	      var _this3 = this;
 	
-	      var toList = this.state.lists.get(event.target.value);
-	      toList = toList.set('items', toList.get('items').unshift(this.state.tweetToMove));
-	      var newLists = this.state.lists.set(this.state.moveFromListIndex, fromList).set(event.target.value, toList);
+	      var tweetIndex = this.state.tweets.findKey(function (tweet) {
+	        return tweet[0] === _this3.state.tweetToMove;
+	      });
+	      var tweets = this.state.tweets.delete(tweetIndex).unshift([this.state.tweetToMove, event.target.value]);
 	      this.setState({
-	        lists: newLists,
+	        tweets: tweets,
 	        tweetToMove: null,
 	        moveFromListIndex: null
 	      });
@@ -31595,55 +31623,6 @@
 
 /***/ },
 /* 243 */
-/*!**************************************!*\
-  !*** ./src/client/app/categories.js ***!
-  \**************************************/
-/***/ function(module, exports, __webpack_require__) {
-
-	'use strict';
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _immutable = __webpack_require__(/*! immutable */ 244);
-	
-	var categories = (0, _immutable.List)([(0, _immutable.Map)({
-	  category: (0, _immutable.Map)({
-	    name: 'Transporte',
-	    color: 'orange'
-	  }),
-	  items: (0, _immutable.List)()
-	}), (0, _immutable.Map)({
-	  category: (0, _immutable.Map)({
-	    name: 'Educação',
-	    color: 'blue'
-	  }),
-	  items: (0, _immutable.List)()
-	}), (0, _immutable.Map)({
-	  category: (0, _immutable.Map)({
-	    name: 'Segurança pública',
-	    color: 'brown'
-	  }),
-	  items: (0, _immutable.List)()
-	}), (0, _immutable.Map)({
-	  category: (0, _immutable.Map)({
-	    name: 'Saúde',
-	    color: 'green'
-	  }),
-	  items: (0, _immutable.List)()
-	}), (0, _immutable.Map)({
-	  category: (0, _immutable.Map)({
-	    name: 'Outros',
-	    color: 'gray'
-	  }),
-	  items: (0, _immutable.List)()
-	})]);
-	
-	exports.default = categories;
-
-/***/ },
-/* 244 */
 /*!***************************************!*\
   !*** ./~/immutable/dist/immutable.js ***!
   \***************************************/
@@ -36630,6 +36609,37 @@
 	}));
 
 /***/ },
+/* 244 */
+/*!**************************************!*\
+  !*** ./src/client/app/categories.js ***!
+  \**************************************/
+/***/ function(module, exports) {
+
+	'use strict';
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	var categories = [{
+	  name: 'Transporte',
+	  color: 'orange'
+	}, {
+	  name: 'Educação',
+	  color: 'blue'
+	}, {
+	  name: 'Segurança pública',
+	  color: 'brown'
+	}, {
+	  name: 'Saúde',
+	  color: 'green'
+	}, {
+	  name: 'Outros',
+	  color: 'gray'
+	}];
+	
+	exports.default = categories;
+
+/***/ },
 /* 245 */
 /*!**************************************!*\
   !*** ./src/client/app/Dashboard.jsx ***!
@@ -36648,7 +36658,11 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _DashboardList = __webpack_require__(/*! ./DashboardList.jsx */ 246);
+	var _classnames = __webpack_require__(/*! classnames */ 246);
+	
+	var _classnames2 = _interopRequireDefault(_classnames);
+	
+	var _DashboardList = __webpack_require__(/*! ./DashboardList.jsx */ 247);
 	
 	var _DashboardList2 = _interopRequireDefault(_DashboardList);
 	
@@ -36687,13 +36701,22 @@
 	    value: function renderLists() {
 	      var _this2 = this;
 	
-	      return this.props.lists.map(function (list, index) {
-	        if (list.get('category').get('name') == 'Outros') return;
+	      return this.props.categories.map(function (category, index) {
+	        if (_this2.props.showUncategorizedList === false && category.name == 'Outros') return;
 	
+	        var tweets = _this2.props.tweets.filter(function (tweet) {
+	          return tweet[1] == index;
+	        }).map(function (tweet) {
+	          return tweet[0];
+	        });
+	        var classes = (0, _classnames2.default)({
+	          'col-xs-15': _this2.props.showUncategorizedList === true,
+	          'col-xs-3': _this2.props.showUncategorizedList === false
+	        });
 	        return _react2.default.createElement(
 	          'div',
-	          { key: index, className: 'col-xs-3', style: { borderTop: '5px solid ' + list.get('category').get('color') } },
-	          _react2.default.createElement(_DashboardList2.default, { category: list.get('category'), items: list.get('items'), onMoveFromList: _this2.props.onMoveFromList.bind(null, index) })
+	          { key: index, className: classes, style: { borderTop: '5px solid ' + category.color } },
+	          _react2.default.createElement(_DashboardList2.default, { category: category, items: tweets, onMoveFromList: _this2.props.onMoveFromList.bind(null, index) })
 	        );
 	      });
 	    }
@@ -36701,8 +36724,10 @@
 	    key: 'propTypes',
 	    value: function propTypes() {
 	      return {
-	        lists: _react2.default.PropTypes.array.isRequired,
-	        onMoveFromList: _react2.default.PropTypes.func.isRequired
+	        categories: _react2.default.PropTypes.object.isRequired,
+	        tweets: _react2.default.PropTypes.array.isRequired,
+	        onMoveFromList: _react2.default.PropTypes.func.isRequired,
+	        showUncategorizedList: _react2.default.PropTypes.bool.isRequired
 	      };
 	    }
 	  }]);
@@ -36714,6 +36739,63 @@
 
 /***/ },
 /* 246 */
+/*!*******************************!*\
+  !*** ./~/classnames/index.js ***!
+  \*******************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
+	  Copyright (c) 2016 Jed Watson.
+	  Licensed under the MIT License (MIT), see
+	  http://jedwatson.github.io/classnames
+	*/
+	/* global define */
+	
+	(function () {
+		'use strict';
+	
+		var hasOwn = {}.hasOwnProperty;
+	
+		function classNames () {
+			var classes = [];
+	
+			for (var i = 0; i < arguments.length; i++) {
+				var arg = arguments[i];
+				if (!arg) continue;
+	
+				var argType = typeof arg;
+	
+				if (argType === 'string' || argType === 'number') {
+					classes.push(arg);
+				} else if (Array.isArray(arg)) {
+					classes.push(classNames.apply(null, arg));
+				} else if (argType === 'object') {
+					for (var key in arg) {
+						if (hasOwn.call(arg, key) && arg[key]) {
+							classes.push(key);
+						}
+					}
+				}
+			}
+	
+			return classes.join(' ');
+		}
+	
+		if (typeof module !== 'undefined' && module.exports) {
+			module.exports = classNames;
+		} else if (true) {
+			// register as 'classnames', consistent with npm package name
+			!(__WEBPACK_AMD_DEFINE_ARRAY__ = [], __WEBPACK_AMD_DEFINE_RESULT__ = function () {
+				return classNames;
+			}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+		} else {
+			window.classNames = classNames;
+		}
+	}());
+
+
+/***/ },
+/* 247 */
 /*!******************************************!*\
   !*** ./src/client/app/DashboardList.jsx ***!
   \******************************************/
@@ -36731,11 +36813,11 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _DashboardIndex = __webpack_require__(/*! ./DashboardIndex.jsx */ 247);
+	var _DashboardIndex = __webpack_require__(/*! ./DashboardIndex.jsx */ 248);
 	
 	var _DashboardIndex2 = _interopRequireDefault(_DashboardIndex);
 	
-	var _DashboardListItem = __webpack_require__(/*! ./DashboardListItem.jsx */ 248);
+	var _DashboardListItem = __webpack_require__(/*! ./DashboardListItem.jsx */ 249);
 	
 	var _DashboardListItem2 = _interopRequireDefault(_DashboardListItem);
 	
@@ -36763,9 +36845,9 @@
 	        'div',
 	        null,
 	        _react2.default.createElement(_DashboardIndex2.default, {
-	          name: this.props.category.get('name'),
+	          name: this.props.category.name,
 	          count: this.props.items.size,
-	          color: this.props.category.get('color') }),
+	          color: this.props.category.color }),
 	        _react2.default.createElement(
 	          'div',
 	          { className: 'list-group' },
@@ -36799,7 +36881,7 @@
 	exports.default = DashboardList;
 
 /***/ },
-/* 247 */
+/* 248 */
 /*!*******************************************!*\
   !*** ./src/client/app/DashboardIndex.jsx ***!
   \*******************************************/
@@ -36868,7 +36950,7 @@
 	exports.default = DashboardIndex;
 
 /***/ },
-/* 248 */
+/* 249 */
 /*!**********************************************!*\
   !*** ./src/client/app/DashboardListItem.jsx ***!
   \**********************************************/
@@ -36886,7 +36968,7 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _categories = __webpack_require__(/*! ./categories.js */ 243);
+	var _categories = __webpack_require__(/*! ./categories.js */ 244);
 	
 	var _categories2 = _interopRequireDefault(_categories);
 	
@@ -36911,7 +36993,7 @@
 	    key: 'render',
 	    value: function render() {
 	      var place = this.props.tweet.place && this.props.tweet.place.name ? _react2.default.createElement(
-	        'small',
+	        'div',
 	        { className: 'text-muted', title: 'Localização da publicação' },
 	        _react2.default.createElement('span', { className: 'fa fa-map-marker' }),
 	        this.props.tweet.place.name
@@ -36928,13 +37010,8 @@
 	          'div',
 	          { className: 'list-group-item-footer' },
 	          _react2.default.createElement(
-	            'button',
-	            { className: 'btn btn-link btn-xs text-muted pull-right', onClick: this.moveToList.bind(this) },
-	            _react2.default.createElement('span', { className: 'fa fa-undo' })
-	          ),
-	          _react2.default.createElement(
 	            'a',
-	            { href: "https://twitter.com/intent/tweet?in_reply_to=" + this.props.tweet.id_str, target: '_blank', title: 'Responder publicação' },
+	            { href: "https://twitter.com/intent/tweet?in_reply_to=" + this.props.tweet.id_str, target: '_blank', title: 'Responder publicação', className: 'pull-right' },
 	            _react2.default.createElement('small', { className: 'text-muted fa fa-reply' })
 	          ),
 	          _react2.default.createElement(
@@ -36946,8 +37023,22 @@
 	              '@',
 	              this.props.tweet.user.screen_name
 	            )
-	          ),
+	          )
+	        ),
+	        _react2.default.createElement(
+	          'div',
+	          { className: 'list-group-item-footer' },
 	          place
+	        ),
+	        _react2.default.createElement(
+	          'div',
+	          { className: 'list-group-item-footer' },
+	          _react2.default.createElement(
+	            'button',
+	            { className: 'btn btn-outline btn-xs btn-block text-muted', onClick: this.moveToList.bind(this) },
+	            _react2.default.createElement('span', { className: 'fa fa-undo' }),
+	            ' Mudar categoria'
+	          )
 	        )
 	      );
 	    }
