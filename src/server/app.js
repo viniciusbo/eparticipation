@@ -5,57 +5,61 @@ var path = require('path');
 var app = express();
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
+var MongoClient = require('mongodb').MongoClient;
 var celery = celery.createClient({
   CELERY_BROKER_URL: 'amqp://guest@localhost//',
   CELERY_RESULT_BACKEND: 'amqp'
 });
 
-initApp();
-connectToCeleryJobQueue();
+MongoClient.connect('mongodb://localhost:27017/eparticipation', function(err, db) {
+  initApp();
+  connectToCeleryJobQueue();
 
-function initApp() {
-  app.set('view options', { layout: false })
-  app.use('/static', express.static(path.join(__dirname, '../client/public')));
-  app.get('/', function(req, res) {
-    res.sendFile(path.join(__dirname, './views/index.html'));
-  });
-}
-
-function connectToCeleryJobQueue() {
-  celery.on('connect', connectToTwitterStream);
-}
-
-function connectToTwitterStream() {
-  var twitter = new Twitter({
-    consumer_key: process.env.TWITTER_CONSUMER_KEY,
-    consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-    token: process.env.TWITTER_ACCESS_TOKEN_KEY,
-    token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-  });
-  twitter.trackMultiple(['sao paulo', 'sp', 'rio de janeiro', 'rj']);
-  twitter.language('pt');
-  twitter.on('tweet', onNewTweet);
-}
-
-function onNewTweet(tweet) {
-  if (!tweet || !tweet.text || tweet.text.indexOf('RT @') > -1 || tweet.text.indexOf('@') === 0)
-    return;
-
-  // console.log('Running classification...');
-  runTextClassificationJob(tweet);
-}
-
-function runTextClassificationJob(tweet, cb) {
-  var result = celery.call('textclf.classificate', [tweet.text]);
-  result.on('ready', onClassificate(tweet));
-}
-
-function onClassificate(tweet) {
-  return function onJobReady(message) {
-    // console.log(tweet.text, message.result);
-    io.emit('tweet', tweet, message.result);
-    app.emit('tweet', tweet, message.result);
+  function initApp() {
+    app.set('view options', { layout: false })
+    app.use('/static', express.static(path.join(__dirname, '../client/public')));
+    app.get('/', function(req, res) {
+      res.sendFile(path.join(__dirname, './views/index.html'));
+    });
   }
-}
+
+  function connectToCeleryJobQueue() {
+    celery.on('connect', connectToTwitterStream);
+  }
+
+  function connectToTwitterStream() {
+    var twitter = new Twitter({
+      consumer_key: process.env.TWITTER_CONSUMER_KEY,
+      consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+      token: process.env.TWITTER_ACCESS_TOKEN_KEY,
+      token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+    });
+    twitter.trackMultiple(['sao paulo', 'sp', 'rio de janeiro', 'rj']);
+    twitter.language('pt');
+    twitter.on('tweet', onNewTweet);
+  }
+
+  function onNewTweet(tweet) {
+    if (!tweet || !tweet.text || tweet.text.indexOf('RT @') > -1 || tweet.text.indexOf('@') === 0)
+      return;
+
+    runTextClassificationJob(tweet);
+  }
+
+  function runTextClassificationJob(tweet, cb) {
+    var result = celery.call('textclf.classificate', [tweet.text]);
+    result.on('ready', onClassificate(tweet));
+  }
+
+  function onClassificate(tweet) {
+    return function onJobReady(message) {
+      io.emit('tweet', tweet, message.result);
+      app.emit('tweet', tweet, message.result);
+
+      tweet.category = message.result[0][0];
+      db.collection('dataset1').insert(tweet);
+    }
+  }
+});
 
 module.exports = server;
